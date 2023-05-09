@@ -1,4 +1,5 @@
 import { constants } from "@ts-ast-viewer/shared";
+import { Structure, StructureKind } from 'ts-morph'
 import CircularJson from "circular-json";
 import React, { useEffect, useState } from "react";
 import {
@@ -20,6 +21,7 @@ import { ArrayUtils, getEnumFlagNames, getSyntaxKindName } from "../utils";
 import { LazyTreeView } from "./LazyTreeView";
 import { Spinner } from "./Spinner";
 import { ToolTippedText } from "./ToolTippedText";
+import {toStructure} from '../utils/toStructure';
 
 export interface PropertiesViewerProps {
   compiler: CompilerState;
@@ -86,6 +88,10 @@ function getBindingSection(context: Context, selectedNode: Node, typeChecker: Ty
       <h2>Symbol</h2>
       <div id={constants.css.properties.symbol.id}>
         {getForSymbol(context, selectedNode, typeChecker)}
+      </div>
+      <h2>Structure</h2>
+      <div id={constants.css.properties.structure.id}>
+        {getForStructure(context, selectedNode, typeChecker)}
       </div>
       <h2>Signature</h2>
       <div id={constants.css.properties.signature.id}>
@@ -196,6 +202,14 @@ function getForSignature(context: Context, node: Node, typeChecker: TypeChecker)
   return getTreeView(context, signature, "Signature");
 }
 
+function getForStructure(context: Context, node: Node) {
+  const structure = toStructure(node);
+  if (!structure) {
+    return <>[None]</>
+  }
+  return getTreeView(context, structure, StructureKind[structure.kind] || "Structure")
+}
+
 function getForFlowNode(context: Context, node: Node, typeChecker: TypeChecker) {
   const nodeWithFlowNode = node as Node & { flowNode?: FlowNode };
   if (nodeWithFlowNode.flowNode == null) {
@@ -213,11 +227,11 @@ function getOrReturnError<T>(getFunc: () => T): T | string {
   }
 }
 
-function getTreeView(context: Context, obj: any, label: string) {
+function getTreeView(context: Context, obj: object, label: string) {
   return <LazyTreeView nodeLabel={label} defaultCollapsed={false} getChildren={() => getProperties(context, obj)} />;
 }
 
-function getProperties(context: Context, obj: any) {
+function getProperties(context: Context, obj: object) {
   const keyInfo = getObjectKeyInfo(context, obj);
 
   const values = (
@@ -237,7 +251,7 @@ function getProperties(context: Context, obj: any) {
   );
   return values;
 
-  function getNodeKeyValue(key: string, value: any, parent: any): JSX.Element {
+  function getNodeKeyValue(key: string, value: unknown, parent: unknown): JSX.Element {
     if (value === null) {
       return getTextDiv(key, "null");
     } else if (value === undefined) {
@@ -285,7 +299,7 @@ function getMapDiv(context: Context, key: string, value: ReadonlyMap<string, unk
   }
 }
 
-function getObjectDiv(context: Context, key: string, value: unknown) {
+function getObjectDiv(context: Context, key: string, value: Partial<Record<string, unknown>>) {
   if (getObjectKeyInfo(context, value).length === 0) {
     return getTextDiv(key, "{}");
   } else {
@@ -378,7 +392,7 @@ function getTreeNode(context: Context, value: any, key?: string, index?: number)
   }
 }
 
-function getLabelName(context: Context, obj: any) {
+function getLabelName(context: Context, obj: { getName?(): string }) {
   if (obj == null) {
     return undefined;
   }
@@ -421,7 +435,7 @@ function getLabelName(context: Context, obj: any) {
   }
 }
 
-function getObjectKeyInfo(context: Context, obj: any) {
+function getObjectKeyInfo(context: Context, obj: null | undefined | Partial<Record<string, unknown>>) {
   if (obj == null) {
     return [];
   }
@@ -478,7 +492,7 @@ function isMap(value: any): value is ReadonlyMap<string, unknown> {
 }
 
 function isTsNode(value: any): value is Node {
-  return typeof (value as Node).kind === "number";
+  return typeof (value as Node).kind === "number" && typeof (value as Node).flags === "number";
 }
 
 function isTsType(value: any): value is Type {

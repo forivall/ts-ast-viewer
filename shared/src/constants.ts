@@ -31,6 +31,9 @@ export const css = {
     signature: {
       id: "signature",
     },
+    structure: {
+      id: "structure",
+    },
   },
 };
 
