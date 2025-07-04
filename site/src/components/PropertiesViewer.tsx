@@ -1,5 +1,5 @@
 import { constants } from "@ts-ast-viewer/shared";
-import { Structure, StructureKind } from 'ts-morph'
+import { StructureKind } from "ts-morph";
 import CircularJson from "circular-json";
 import React, { useEffect, useState } from "react";
 import {
@@ -17,7 +17,7 @@ import {
   TypeChecker,
 } from "../compiler";
 import { BindingTools, CompilerState } from "../types";
-import { ArrayUtils, getEnumFlagNames, getSyntaxKindName } from "../utils";
+import { getEnumFlagNames, getStructureKindName, getSyntaxKindName } from "../utils";
 import { LazyTreeView } from "./LazyTreeView";
 import { Spinner } from "./Spinner";
 import { ToolTippedText } from "./ToolTippedText";
@@ -202,7 +202,7 @@ function getForSignature(context: Context, node: Node, typeChecker: TypeChecker)
   return getTreeView(context, signature, "Signature");
 }
 
-function getForStructure(context: Context, node: Node) {
+function getForStructure(context: Context, node: Node, typeChecker: TypeChecker) {
   const structure = toStructure(node);
   if (!structure) {
     return <>[None]</>
@@ -345,6 +345,14 @@ function getCustomValueDiv(context: Context, key: string, value: any, parent: an
     if (isFlowNode(parent) && key === "flags") {
       return getEnumFlagElement(context.api.FlowFlags, value);
     }
+    let structureKindName: string
+    if (
+      key === "kind" &&
+      typeof value === "number" &&
+      (structureKindName = StructureKind[value])
+    ) {
+      return `${value} (StructureKind.${structureKindName})`
+    }
     return CircularJson.stringify(value);
   }
 }
@@ -408,6 +416,9 @@ function getLabelName(context: Context, obj: { getName?(): string }) {
   if (isTsSymbol(obj)) {
     return appendName("Symbol");
   }
+  if (isMorphStructure(obj)) {
+    return appendName(getStructureKindName(obj.kind) ?? 'Object')
+  }
   const objType = typeof obj;
   if (objType === "string" || objType === "number" || objType === "boolean") {
     return undefined;
@@ -427,6 +438,9 @@ function getLabelName(context: Context, obj: { getName?(): string }) {
       if (isTsNode(obj) && (obj as any).name != null) {
         const name = (obj as any).name as Node;
         return name.getText();
+      }
+      if (isMorphStructure(obj) && (obj as any).name != null) {
+        return (obj as any).name as string;
       }
       return undefined;
     } catch (err) {
@@ -526,4 +540,8 @@ function getEnumFlagElement(enumObj: any, value: number) {
   function getNames() {
     return <ul>{names.map((name, i) => <li key={i}>{name}</li>)}</ul>;
   }
+}
+
+function isMorphStructure(value: any): value is { kind: StructureKind } {
+  return typeof value === 'object' && value && typeof value.kind === 'number' && value.kind <= StructureKind.VariableStatement;
 }
